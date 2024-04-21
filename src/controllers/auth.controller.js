@@ -8,13 +8,25 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+    console.log(user);
     //Check for user
     if (!user) {
       throw new ErrorWithStatus("User not found", 404);
     }
     //Check if password is correct
-    if (bcrypt.compareSync(password, user.password)) {
-      throw new ErrorWithStatus("Password not correct", 404);
+    console.log(password);
+    console.log(user.password);
+    const passwordCheck = await bcrypt
+      .compare(password, user.password)
+      .then((result) => {
+        return result;
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+    console.log(passwordCheck);
+    if (!passwordCheck) {
+      throw new ErrorWithStatus("Password not correct", 401);
     }
     //Now that everything passes, let's grant them access token
     const JWT_SECRET = process.env.JWT_SECRET || "SomeLongassBlockOfText";
@@ -38,7 +50,7 @@ export const login = async (req, res) => {
     });
   } catch (err) {
     res.status(err.status || 500);
-    re.json({ message: err.message });
+    res.json({ message: err.message });
   }
 };
 
@@ -52,8 +64,16 @@ export const signup = async (req, res) => {
     if (user) {
       throw new ErrorWithStatus("User aready exists.", 404);
     }
+    const saltRounds = 10;
     //If user doesn't exist, continue
-    password = await bcrypt.hash(password, 10);
+    password = await bcrypt //For some reason, simply using the hash function does not work. Wierd, i know, but what can you do?
+      .hash(password, saltRounds)
+      .then((hash) => {
+        return hash;
+      })
+      .catch((err) => console.error(err.message));
+
+    console.log(password);
     const newUser = new User({
       firstname,
       lastname,
@@ -62,6 +82,7 @@ export const signup = async (req, res) => {
       role,
     });
     await newUser.save();
+    delete newUser.password;
     res.json({
       message: "User created successfully",
       data: {

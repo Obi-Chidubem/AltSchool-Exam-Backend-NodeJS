@@ -1,5 +1,5 @@
 import express from "express";
-import * as authRouter from "../controllers/auth.controller.js";
+import * as authController from "../controllers/auth.controller.js";
 
 const authRoute = express.Router();
 
@@ -11,8 +11,8 @@ authRoute.get("/signup", (req, res) => {
   res.send("signupPage");
 });
 
-authRoute.post("/signup", authRouter.signup);
+authRoute.post("/signup", authController.signup);
 
-authRoute.post("/login", authRouter.login);
+authRoute.post("/login", authController.login);
 
 export default authRoute;
