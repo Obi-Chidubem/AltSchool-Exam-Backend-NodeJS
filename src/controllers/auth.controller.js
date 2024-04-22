@@ -62,7 +62,7 @@ export const signup = async (req, res) => {
     const user = await User.findOne({ email });
     //check if user exists and stop if it does
     if (user) {
-      throw new ErrorWithStatus("User aready exists.", 404);
+      throw new ErrorWithStatus("User already exists.", 404);
     }
     const saltRounds = 10;
     //If user doesn't exist, continue

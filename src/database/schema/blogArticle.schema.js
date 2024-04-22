@@ -20,6 +20,14 @@ const blogAarticleSchema = mongoose.Schema(
       type: String,
       default: "DRAFT",
     },
+    read_count: {
+      type: Number,
+      default: 0,
+    },
+    reading_time: {
+      type: String,
+      default: "0 min",
+    },
   },
   { timestamp: true }
 );

@@ -1,12 +1,9 @@
-import jwt from "jsonwebtoken";
 import blogArticle from "../database/schema/blogArticle.schema.js";
-import { ErrorWithStatus } from "../exceptions/error_with_status.exception.js";
-import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import User from "../database/schema/user.schema.js";
 import authService from "../services/auth.service.js";
 dotenv.config();
-git add
+
 export const createArticle = async (req, res) => {
   try {
     req.user = await authService(req, res);
@@ -72,6 +69,31 @@ export const updateArticle = async (req, res) => {
   }
 };
 
+export const deleteArticle = async (req, res) => {
+  try {
+    req.user = await authService(req, res);
+    console.log(req.user);
+    const { title } = req.body; //title will be a simple key:value pair, but update will be another object of it's own.
+    const Article = await blogArticle.find({ title });
+    console.log(Article);
+    if (req.user._id !== Article[0].authorId) {
+      res.status(401).json({ err: "Article Does Not Belong To User" });
+      return;
+    }
+    const deletedArticle = await blogArticle.findOneAndDelete({ title });
+    res.json({
+      message: "Article Has Been Deleted",
+      data: {
+        "Deleted Article": deletedArticle,
+      },
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      message: err.message,
+    });
+  }
+};
+
 export const changeArticleState = async (req, res) => {
   try {
     req.user = await authService(req, res);
@@ -116,4 +138,98 @@ export const changeArticleState = async (req, res) => {
   }
 };
 
-export const viewAllArticles = (req, res) => {};
+export const viewUserArticles = async (req, res) => {
+  try {
+    req.user = await authService(req, res);
+    console.log(req.user);
+    const page = req.query.page || 1;
+    const limit = 20;
+    const skip = (page - 1) * limit;
+    const qskip = req.query.skip || skip;
+    const qlimit = req.query.limit || limit;
+    if (req.query.state) {
+      const userArticles = await blogArticle
+        .find({ userId: req.user.id, state: req.query.state })
+        .skip(qskip)
+        .limit(qlimit);
+      res.json({
+        "Your Articles": userArticles,
+      });
+      return;
+    }
+
+    const userArticles = await blogArticle
+      .find({ userId: req.user.id })
+      .skip(qskip)
+      .limit(qlimit);
+    res.json({
+      "Your Articles": userArticles,
+    });
+  } catch (err) {
+    res.status(err.status || 500);
+    res.json({
+      err: err.message,
+    });
+  }
+};
+
+//This one is so long, but dont be scared. No, really, it's gentler than it looks.
+export const viewAllArticles = async (req, res) => {
+  try {
+    const page = req.query.page || 1;
+    const limit = 20;
+    const skip = (page - 1) * limit;
+    const qskip = req.query.skip || skip;
+    const qlimit = req.query.limit || limit;
+    var params = {};
+    //Check what query the user is using to search. There can be one or more.
+    //Put them all in an object called params nad pass that object into the DB find
+    if (req.query.authorId) {
+      params["authorId"] = req.query.authorId;
+    }
+    if (req.query.title) {
+      params["title"] = req.query.title;
+    }
+    if (req.query.tags) {
+      params["tags"] = req.query.tags;
+    }
+    params["state"] = "PUBLISHED";
+    console.log(params);
+    const allArticles = await blogArticle
+      .find(params)
+      .skip(qskip)
+      .limit(qlimit);
+
+    //If you only called on a single article using any of the queries, then we will update the read count of that one.
+    if (allArticles.length == 1) {
+      var readCount = allArticles[0].read_count;
+      console.log(readCount);
+      const updatedArticle = await blogArticle.findOneAndUpdate(
+        {
+          title: req.query.title,
+        },
+        { read_count: readCount + 1 },
+        { new: true }
+      );
+      const userInfo = await User.findOne({ _id: updatedArticle.authorId });
+      const displayAuthor = {
+        Firstname: userInfo.firstname,
+        Lastname: userInfo.lastname,
+        Email: userInfo.email,
+      };
+      res.json({
+        Article: updatedArticle,
+        Author: displayAuthor,
+      });
+      return;
+    }
+
+    //If you called on more than one, then you will just get this response
+    res.json({
+      Articles: allArticles,
+    });
+  } catch (err) {
+    res.status(err.status || 500);
+    res.json({ err: err.message });
+  }
+};
